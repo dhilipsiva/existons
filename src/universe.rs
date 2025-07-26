@@ -11,6 +11,7 @@ pub struct Universe {
     pub entangled_pairs: HashMap<u64, u64>,
     pub observation_rate: f64,
     pub decay_rate: f64,
+    pub entanglement_percentage: f64,
 }
 
 impl Universe {
@@ -24,7 +25,8 @@ impl Universe {
         // Create some random entangled pairs to model nonlocality.
         let mut entangled_pairs = HashMap::new();
         let mut rng = rand::rng();
-        let num_pairs = size / 20; // Entangle 5% of Existons
+        let entanglement_percentage = 0.05; // Start with 5% Entangled Esistons
+        let num_pairs = (size as f64 * entanglement_percentage) as usize;
         for _ in 0..num_pairs {
             let id1 = rng.random_range(0..size) as u64;
             let id2 = rng.random_range(0..size) as u64;
@@ -44,6 +46,7 @@ impl Universe {
             entangled_pairs,
             observation_rate: 0.0005, // The starting spontaneous observation chance
             decay_rate: 0.01,         // The starting decay chance
+            entanglement_percentage,
         }
     }
 
@@ -116,5 +119,24 @@ impl Universe {
         }
 
         self.grid = next_grid;
+    }
+
+    pub fn re_entangle(&mut self) {
+        self.entangled_pairs.clear();
+        let size = self.width * self.height;
+        let mut rng = rand::rng();
+        let num_pairs = (size as f64 * self.entanglement_percentage) as usize;
+
+        for _ in 0..num_pairs {
+            let id1 = rng.random_range(0..size) as u64;
+            let id2 = rng.random_range(0..size) as u64;
+            if id1 != id2
+                && !self.entangled_pairs.contains_key(&id1)
+                && !self.entangled_pairs.contains_key(&id2)
+            {
+                self.entangled_pairs.insert(id1, id2);
+                self.entangled_pairs.insert(id2, id1);
+            }
+        }
     }
 }

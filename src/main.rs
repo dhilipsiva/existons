@@ -57,6 +57,23 @@ fn main() {
                     universe.decay_rate /= 2.0;
                     println!("Decay Rate Decreased: {}", universe.decay_rate);
                 }
+                Key::E => {
+                    let current_percent = universe.entanglement_percentage;
+                    if (current_percent - 0.01).abs() < f64::EPSILON {
+                        universe.entanglement_percentage = 0.05;
+                    } else if (current_percent - 0.05).abs() < f64::EPSILON {
+                        universe.entanglement_percentage = 0.10;
+                    } else if (current_percent - 0.10).abs() < f64::EPSILON {
+                        universe.entanglement_percentage = 0.20;
+                    } else {
+                        universe.entanglement_percentage = 0.01;
+                    }
+                    universe.re_entangle();
+                    println!(
+                        "Entanglement Percentage set to: {}%",
+                        universe.entanglement_percentage * 100.0
+                    );
+                }
                 _ => {}
             }
         }
@@ -103,6 +120,14 @@ fn main() {
                     .draw(&decay_text, &mut glyphs, &c.draw_state, transform2, g)
                     .unwrap();
 
+                let transform3 = c.transform.trans(10.0, 60.0);
+                let ent_text = format!(
+                    "Entanglement: {:.0}%",
+                    universe.entanglement_percentage * 100.0
+                );
+                text::Text::new_color([0.8, 0.8, 0.8, 1.0], 14)
+                    .draw(&ent_text, &mut glyphs, &c.draw_state, transform3, g)
+                    .unwrap();
                 // You must call this once per frame for the glyph cache.
                 glyphs.factory.encoder.flush(device);
             });
