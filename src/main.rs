@@ -42,15 +42,16 @@ fn main() {
         if let Some(Button::Keyboard(key)) = e.press_args() {
             match key {
                 Key::Up => {
-                    universe.observation_rate *= 2.0;
+                    universe.observation_rate = (universe.observation_rate * 2.0).min(1.0);
                     println!("Observation Rate Increased: {}", universe.observation_rate);
                 }
                 Key::Down => {
                     universe.observation_rate /= 2.0;
                     println!("Observation Rate Decreased: {}", universe.observation_rate);
                 }
+                // Clamp the upper bound to 1.0
                 Key::Right => {
-                    universe.decay_rate *= 2.0;
+                    universe.decay_rate = (universe.decay_rate * 2.0).min(1.0);
                     println!("Decay Rate Increased: {}", universe.decay_rate);
                 }
                 Key::Left => {
@@ -74,11 +75,15 @@ fn main() {
                         universe.entanglement_percentage * 100.0
                     );
                 }
+                // Clamp the upper bound to 1.0
                 Key::F => {
-                    if e.press_args().is_some() {
-                        universe.fluctuation_rate *= 2.0;
-                    }
+                    universe.fluctuation_rate = (universe.fluctuation_rate * 2.0).min(1.0);
                     println!("Fluctuation Rate set to: {}", universe.fluctuation_rate);
+                }
+                // ADD THIS CASE FOR THE RESET KEY
+                Key::R => {
+                    universe = Universe::new(WIDTH, HEIGHT);
+                    println!("--- UNIVERSE RESET ---");
                 }
                 _ => {}
             }
