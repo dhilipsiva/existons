@@ -1,5 +1,3 @@
-// src/universe.rs
-
 use crate::existon::{ConsciousnessState, Existon};
 use crate::ga_core::{Mod3, Multivector};
 use rand::Rng;

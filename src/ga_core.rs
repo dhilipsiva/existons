@@ -1,8 +1,6 @@
-// src/ga_core.rs
-
 use std::ops::{Add, Mul};
 
-/// Represents the scalar values in Matzke's minimal algebra: {0, +1, -1}.
+/// Represents the scalar values in Doug's minimal algebra: {0, +1, -1}.
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct Mod3(pub i8);
 
@@ -36,13 +34,16 @@ impl Mul for Mod3 {
 
 /// A 2D Geometric Algebra Multivector. This is the state of an Existon.
 /// It's a combination of a scalar, two vectors (e0, e1), and a bivector (e01).
-/// Added Copy and Clone to fix move errors.
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct Multivector {
-    pub s: Mod3,   // Scalar component
-    pub e0: Mod3,  // Vector e0 component
-    pub e1: Mod3,  // Vector e1 component
-    pub e01: Mod3, // Bivector e01 component (the "spinor")
+    /// Scalar component
+    pub s: Mod3,
+    /// Vector e0 component
+    pub e0: Mod3,
+    /// Vector e1 component
+    pub e1: Mod3,
+    /// Bivector e01 component (the "spinor")
+    pub e01: Mod3,
 }
 
 impl Multivector {
@@ -56,11 +57,12 @@ impl Multivector {
     }
 }
 
-// The core update rule: the Geometric Product.
-// This defines how two Existons (multivectors) interact.
-// Rules: e0*e0=1, e1*e1=1, e0*e1 = -e1*e0
 impl Mul for Multivector {
     type Output = Self;
+
+/// The core update rule: the Geometric Product.
+/// This defines how two Existons (multivectors) interact.
+/// Rules: e0*e0=1, e1*e1=1, e0*e1 = -e1*e0
     fn mul(self, rhs: Self) -> Self::Output {
         let mut result = Multivector::zero();
         // Scalar part

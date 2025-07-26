@@ -1,5 +1,3 @@
-// src/existon.rs
-
 use crate::ga_core::{Mod3, Multivector};
 use rand::Rng;
 
