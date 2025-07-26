@@ -84,6 +84,13 @@ impl Universe {
                     next_grid[idx].observe();
                     observed_in_tick.push(next_grid[idx].id);
                 }
+
+                // Rule: An Observed Existon has a chance to decay back to Potential
+                if self.grid[idx].consciousness == ConsciousnessState::Observed
+                    && rand::rng().random_bool(0.01)
+                {
+                    next_grid[idx].decay();
+                }
             }
         }
 

@@ -42,4 +42,18 @@ impl Existon {
             self.state.e01 = Mod3::new(0);
         }
     }
+
+    pub fn decay(&mut self) {
+        if self.consciousness == ConsciousnessState::Observed {
+            self.consciousness = ConsciousnessState::Potential;
+            // Return to a random superposition
+            let mut rng = rand::rng();
+            self.state = Multivector {
+                s: Mod3::new(rng.random_range(-1..=1)),
+                e0: Mod3::new(rng.random_range(-1..=1)),
+                e1: Mod3::new(rng.random_range(-1..=1)),
+                e01: Mod3::new(rng.random_range(-1..=1)),
+            };
+        }
+    }
 }
