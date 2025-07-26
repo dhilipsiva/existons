@@ -1,5 +1,5 @@
 {
-  description = "Rust dev shell for Existon Automaton";
+  description = "Rust dev shell for Existons";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -21,11 +21,6 @@
           rustfmt
           rust-analyzer
 
-          # Build tools
-          pkg-config
-          openssl
-          libxml2
-
           # X11 + OpenGL graphics deps
           libGL
           libGLU
@@ -42,7 +37,7 @@
 
           shellHook = ''
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath myBuildInputs}"
-            echo "✅ Dev shell ready — OpenGL and X11 libraries loaded"
+            echo "✅ Existons shell ready — OpenGL and X11 libraries loaded"
           '';
 
           RUST_BACKTRACE = "1";
