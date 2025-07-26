@@ -20,6 +20,8 @@
           clippy
           rustfmt
           rust-analyzer
+          vlc
+          wf-recorder  # To record: `wf-recorder -f output.mp4`
 
           # X11 + OpenGL graphics deps
           libGL
