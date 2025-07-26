@@ -1,58 +1,66 @@
-use crate::ga_core::{Mod3, Multivector};
-use rand::Rng;
+//! Defines the core `Existon` and its states of consciousness.
+//!
+//! An Existon is the fundamental unit of the simulation, representing a
+//! "topological bit" whose state is described by a Geometric Algebra multivector.
 
-#[derive(Clone, Copy, PartialEq, PartialOrd)]
+use crate::ga_core::Multivector;
+
+/// Represents the discrete states of consciousness for an Existon.
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub enum ConsciousnessState {
-    Potential, // The Existon is in superposition, unobserved.
-    Observed,  // The Existon has been measured, collapsing its state.
-    Operator,  // A fixed, stable state that influences its neighbors.
+    /// The Existon is in a superposition of states, unobserved.
+    Potential,
+    /// The Existon has been measured, collapsing its state to a definite value.
+    Observed,
+    /// The Existon is a fixed, stable entity that influences its neighbors.
+    Operator,
 }
 
-/// The Existon: a "topological bit" and the primitive unit of consciousness.
-#[derive(Clone, Copy, PartialEq, PartialOrd)]
+/// The Existon: a primitive unit of reality and consciousness.
+///
+/// Each Existon has a unique ID, a state of consciousness, and a `Multivector`
+/// which holds its underlying geometric state.
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Existon {
+    /// A unique identifier for the Existon.
     pub id: u64,
+    /// The current consciousness state of the Existon.
     pub consciousness: ConsciousnessState,
-    pub state: Multivector, // The GA multivector representing its quantum state.
+    /// The Geometric Algebra multivector representing the Existon's state.
+    pub state: Multivector,
 }
 
 impl Existon {
+    /// Creates a new Existon with a unique ID, initialized in a random `Potential` state.
     pub fn new(id: u64) -> Self {
-        let mut rng = rand::rng();
-        // Initialize in a random potential state.
         Existon {
             id,
             consciousness: ConsciousnessState::Potential,
-            state: Multivector {
-                s: Mod3::new(rng.random_range(-1..=1)),
-                e0: Mod3::new(rng.random_range(-1..=1)),
-                e1: Mod3::new(rng.random_range(-1..=1)),
-                e01: Mod3::new(rng.random_range(-1..=1)),
-            },
+            // Initialize with a random state using the new constructor.
+            state: Multivector::random(),
         }
     }
 
-    /// The "It from Bit" event: observation collapses potentiality.
+    /// The "It from Bit" event: collapses a `Potential` state to an `Observed` state.
+    ///
+    /// Upon observation, the state simplifies. As an example, we zero out the
+    /// bivector (spinor) component, making its state more "classical".
     pub fn observe(&mut self) {
         if self.consciousness == ConsciousnessState::Potential {
             self.consciousness = ConsciousnessState::Observed;
-            // Upon observation, the state simplifies. For example, we can zero out
-            // the bivector (spinor) component, making it more "classical".
-            self.state.e01 = Mod3::new(0);
+            self.state.e01 = crate::ga_core::Mod3::new(0);
         }
     }
 
+    /// Returns an `Observed` Existon to a new, random `Potential` state.
+    ///
+    /// This represents decoherence or the loss of a persistent observation, allowing
+    /// "reality" to dissolve back into the quantum foam.
     pub fn decay(&mut self) {
         if self.consciousness == ConsciousnessState::Observed {
             self.consciousness = ConsciousnessState::Potential;
-            // Return to a random superposition
-            let mut rng = rand::rng();
-            self.state = Multivector {
-                s: Mod3::new(rng.random_range(-1..=1)),
-                e0: Mod3::new(rng.random_range(-1..=1)),
-                e1: Mod3::new(rng.random_range(-1..=1)),
-                e01: Mod3::new(rng.random_range(-1..=1)),
-            };
+            // Return to a random superposition.
+            self.state = Multivector::random();
         }
     }
 }
