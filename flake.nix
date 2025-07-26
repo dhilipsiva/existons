@@ -1,5 +1,5 @@
 {
-  description = "Rust dev shell for nf-xsd-to-rs";
+  description = "Rust dev shell for Existon Automaton";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -12,18 +12,38 @@
         pkgs = import nixpkgs {
           inherit system;
         };
+
+        myBuildInputs = with pkgs; [
+          # Rust
+          rustc
+          cargo
+          clippy
+          rustfmt
+          rust-analyzer
+
+          # Build tools
+          pkg-config
+          openssl
+          libxml2
+
+          # X11 + OpenGL graphics deps
+          libGL
+          libGLU
+          libdrm
+          xorg.libX11
+          xorg.libXrandr
+          xorg.libXcursor
+          xorg.libXi
+          mesa
+        ];
       in {
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            rustc
-            cargo
-            clippy
-            rustfmt
-            rust-analyzer
-            pkg-config
-            openssl  # remove if not using native TLS
-            libxml2
-          ];
+          buildInputs = myBuildInputs;
+
+          shellHook = ''
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath myBuildInputs}"
+            echo "✅ Dev shell ready — OpenGL and X11 libraries loaded"
+          '';
 
           RUST_BACKTRACE = "1";
         };
