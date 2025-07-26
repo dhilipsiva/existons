@@ -74,6 +74,12 @@ fn main() {
                         universe.entanglement_percentage * 100.0
                     );
                 }
+                Key::F => {
+                    if e.press_args().is_some() {
+                        universe.fluctuation_rate *= 2.0;
+                    }
+                    println!("Fluctuation Rate set to: {}", universe.fluctuation_rate);
+                }
                 _ => {}
             }
         }
@@ -92,16 +98,16 @@ fn main() {
                         let color = match existon.consciousness {
                             // Potential Existons are the dim, shifting "quantum foam"
                             ConsciousnessState::Potential => {
-                                let r = (existon.state.s.0 + 1) as f32 * 0.1;
-                                let g = (existon.state.e0.0 + 1) as f32 * 0.1;
-                                let b = (existon.state.e1.0 + 1) as f32 * 0.1;
-                                let a = (existon.state.e01.0 + 1) as f32 * 0.2 + 0.3;
+                                // We'll increase the multipliers to make the colors brighter
+                                let r = (existon.state.s.0 + 1) as f32 * 0.35; // Scalar -> Red
+                                let g = (existon.state.e0.0 + 1) as f32 * 0.35; // Vector e0 -> Green
+                                let b = (existon.state.e1.0 + 1) as f32 * 0.35; // Vector e1 -> Blue
+                                let a = (existon.state.e01.0 + 1) as f32 * 0.4 + 0.5; // Bivector -> Alpha
                                 [r, g, b, a]
                             }
                             // Observed Existons are bright, definite points of reality
                             ConsciousnessState::Observed => [1.0, 1.0, 0.8, 1.0],
                         };
-
                         // Fixed: Removed extra comma and added the rectangle dimensions
                         let rect = [x_pos, y_pos, CELL_SIZE, CELL_SIZE];
                         rectangle(color, rect, c.transform, g);
@@ -128,6 +134,13 @@ fn main() {
                 text::Text::new_color([0.8, 0.8, 0.8, 1.0], 14)
                     .draw(&ent_text, &mut glyphs, &c.draw_state, transform3, g)
                     .unwrap();
+
+                let transform4 = c.transform.trans(10.0, 80.0);
+                let fluct_text = format!("Fluctuation: {:.6}", universe.fluctuation_rate);
+                text::Text::new_color([0.8, 0.8, 0.8, 1.0], 14)
+                    .draw(&fluct_text, &mut glyphs, &c.draw_state, transform4, g)
+                    .unwrap();
+
                 // You must call this once per frame for the glyph cache.
                 glyphs.factory.encoder.flush(device);
             });

@@ -12,6 +12,8 @@ pub struct Universe {
     pub observation_rate: f64,
     pub decay_rate: f64,
     pub entanglement_percentage: f64,
+    // To avoid heat-death and keep the simulation perpetually dynamic, we need to introduce a constant "quantum jitter"—a small chance for any Potential cell to spontaneously re-randomize its state.
+    pub fluctuation_rate: f64,
 }
 
 impl Universe {
@@ -47,6 +49,7 @@ impl Universe {
             observation_rate: 0.0005, // The starting spontaneous observation chance
             decay_rate: 0.01,         // The starting decay chance
             entanglement_percentage,
+            fluctuation_rate: 0.001,
         }
     }
 
@@ -94,6 +97,13 @@ impl Universe {
                 if self.grid[idx].consciousness == ConsciousnessState::Observed
                     && rand::rng().random_bool(self.decay_rate)
                 {
+                    next_grid[idx].decay();
+                }
+
+                if self.grid[idx].consciousness == ConsciousnessState::Potential
+                    && rand::rng().random_bool(self.fluctuation_rate)
+                {
+                    // Reusing decay() re-randomizes the state
                     next_grid[idx].decay();
                 }
             }
