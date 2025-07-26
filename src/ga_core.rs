@@ -60,9 +60,9 @@ impl Multivector {
 impl Mul for Multivector {
     type Output = Self;
 
-/// The core update rule: the Geometric Product.
-/// This defines how two Existons (multivectors) interact.
-/// Rules: e0*e0=1, e1*e1=1, e0*e1 = -e1*e0
+    /// The core update rule: the Geometric Product.
+    /// This defines how two Existons (multivectors) interact.
+    /// Rules: e0*e0=1, e1*e1=1, e0*e1 = -e1*e0
     fn mul(self, rhs: Self) -> Self::Output {
         let mut result = Multivector::zero();
         // Scalar part

@@ -3,7 +3,10 @@ mod ga_core;
 mod universe;
 
 use crate::{existon::ConsciousnessState, universe::Universe};
-use piston_window::*;
+use piston_window::{
+    Button, Key, PistonWindow, PressEvent, RenderEvent, TextureSettings, Transformed, UpdateEvent,
+    WindowSettings, clear, glyph_cache::rusttype::GlyphCache, rectangle, text,
+};
 
 fn main() {
     const WIDTH: usize = 120;
@@ -20,13 +23,46 @@ fn main() {
     .build()
     .unwrap_or_else(|e| panic!("Failed to build PistonWindow: {}", e));
 
+    let assets = find_folder::Search::ParentsThenKids(3, 3)
+        .for_folder("assets")
+        .unwrap();
+    let font_path = assets.join("FiraSans-Regular.ttf");
+    let mut glyphs = GlyphCache::new(
+        &font_path,
+        window.create_texture_context(),
+        TextureSettings::new(),
+    )
+    .expect("Could not load font");
+
     while let Some(e) = window.next() {
         if e.update_args().is_some() {
             universe.tick();
         }
 
+        if let Some(Button::Keyboard(key)) = e.press_args() {
+            match key {
+                Key::Up => {
+                    universe.observation_rate *= 2.0;
+                    println!("Observation Rate Increased: {}", universe.observation_rate);
+                }
+                Key::Down => {
+                    universe.observation_rate /= 2.0;
+                    println!("Observation Rate Decreased: {}", universe.observation_rate);
+                }
+                Key::Right => {
+                    universe.decay_rate *= 2.0;
+                    println!("Decay Rate Increased: {}", universe.decay_rate);
+                }
+                Key::Left => {
+                    universe.decay_rate /= 2.0;
+                    println!("Decay Rate Decreased: {}", universe.decay_rate);
+                }
+                _ => {}
+            }
+        }
+
         if e.render_args().is_some() {
-            window.draw_2d(&e, |c, g, _| {
+            window.draw_2d(&e, |c, g, device| {
                 clear([0.0, 0.0, 0.0, 1.0], g); // The void
 
                 for y in 0..universe.height {
@@ -54,6 +90,21 @@ fn main() {
                         rectangle(color, rect, c.transform, g);
                     }
                 }
+
+                let transform = c.transform.trans(10.0, 20.0); // Position for the first line
+                let obs_text = format!("Observation Rate: {:.6}", universe.observation_rate);
+                text::Text::new_color([0.8, 0.8, 0.8, 1.0], 14)
+                    .draw(&obs_text, &mut glyphs, &c.draw_state, transform, g)
+                    .unwrap();
+
+                let transform2 = c.transform.trans(10.0, 40.0); // Position for the second line
+                let decay_text = format!("Decay Rate: {:.6}", universe.decay_rate);
+                text::Text::new_color([0.8, 0.8, 0.8, 1.0], 14)
+                    .draw(&decay_text, &mut glyphs, &c.draw_state, transform2, g)
+                    .unwrap();
+
+                // You must call this once per frame for the glyph cache.
+                glyphs.factory.encoder.flush(device);
             });
         }
     }

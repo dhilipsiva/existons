@@ -9,6 +9,8 @@ pub struct Universe {
     pub grid: Vec<Existon>,
     /// Models nonlocality: Maps an Existon's ID to its entangled partner's ID.
     pub entangled_pairs: HashMap<u64, u64>,
+    pub observation_rate: f64,
+    pub decay_rate: f64,
 }
 
 impl Universe {
@@ -40,6 +42,8 @@ impl Universe {
             height,
             grid,
             entangled_pairs,
+            observation_rate: 0.0005, // The starting spontaneous observation chance
+            decay_rate: 0.01,         // The starting decay chance
         }
     }
 
@@ -77,7 +81,7 @@ impl Universe {
 
                 // Rule: An Existon has a small chance to be spontaneously "observed"
                 if self.grid[idx].consciousness == ConsciousnessState::Potential
-                    && rand::rng().random_bool(0.0005)
+                    && rand::rng().random_bool(self.observation_rate)
                 {
                     next_grid[idx].observe();
                     observed_in_tick.push(next_grid[idx].id);
@@ -85,7 +89,7 @@ impl Universe {
 
                 // Rule: An Observed Existon has a chance to decay back to Potential
                 if self.grid[idx].consciousness == ConsciousnessState::Observed
-                    && rand::rng().random_bool(0.01)
+                    && rand::rng().random_bool(self.decay_rate)
                 {
                     next_grid[idx].decay();
                 }
