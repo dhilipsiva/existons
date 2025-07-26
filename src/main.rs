@@ -111,10 +111,13 @@ fn main() {
             }
         }
 
+        // In src/main.rs
+
         if e.render_args().is_some() {
             window.draw_2d(&e, |c, g, device| {
                 clear([0.0, 0.0, 0.0, 1.0], g); // The void
 
+                // This block for drawing the existons remains the same
                 for y in 0..universe.height {
                     for x in 0..universe.width {
                         let idx = y * universe.width + x;
@@ -124,50 +127,48 @@ fn main() {
 
                         let color = match existon.consciousness {
                             ConsciousnessState::Potential => {
-                                // We'll increase the multipliers to make the colors brighter
-                                let r = (existon.state.s.0 + 1) as f32 * 0.35; // Scalar -> Red
-                                let g = (existon.state.e0.0 + 1) as f32 * 0.35; // Vector e0 -> Green
-                                let b = (existon.state.e1.0 + 1) as f32 * 0.35; // Vector e1 -> Blue
-                                let a = (existon.state.e01.0 + 1) as f32 * 0.4 + 0.5; // Bivector -> Alpha
+                                let r = (existon.state.s.0 + 1) as f32 * 0.35;
+                                let g = (existon.state.e0.0 + 1) as f32 * 0.35;
+                                let b = (existon.state.e1.0 + 1) as f32 * 0.35;
+                                let a = (existon.state.e01.0 + 1) as f32 * 0.4 + 0.5;
                                 [r, g, b, a]
                             }
                             ConsciousnessState::Observed => [1.0, 1.0, 0.8, 1.0],
                             ConsciousnessState::Operator => [0.0, 1.0, 1.0, 1.0],
                         };
-                        // Fixed: Removed extra comma and added the rectangle dimensions
                         let rect = [x_pos, y_pos, CELL_SIZE, CELL_SIZE];
                         rectangle(color, rect, c.transform, g);
                     }
                 }
 
-                let transform = c.transform.trans(10.0, 20.0); // Position for the first line
-                let obs_text = format!("Observation Rate: {:.6}", universe.observation_rate);
-                text::Text::new_color([0.8, 0.8, 0.8, 1.0], 14)
-                    .draw(&obs_text, &mut glyphs, &c.draw_state, transform, g)
-                    .unwrap();
+                // --- NEW UNIFIED TEXT RENDERING BLOCK ---
+                // We build a vector of all the lines we want to draw.
+                let display_lines = vec![
+                    format!(
+                        "[Up/Down] Observation Rate: {:.6}",
+                        universe.observation_rate
+                    ),
+                    format!("[Left/Right] Decay Rate: {:.6}", universe.decay_rate),
+                    format!("[F] Fluctuation Rate:     {:.6}", universe.fluctuation_rate),
+                    format!(
+                        "[E] Entanglement:         {:.0}%",
+                        universe.entanglement_percentage * 100.0
+                    ),
+                    format!("[R] Reset Universe"),
+                    format!("[ESC] Close Window"),
+                    format!(""), // Blank line for separation
+                    format!("[L-Click] Place Operator"),
+                    format!("[R-Click] Erase Operator"),
+                ];
 
-                let transform2 = c.transform.trans(10.0, 40.0); // Position for the second line
-                let decay_text = format!("Decay Rate: {:.6}", universe.decay_rate);
-                text::Text::new_color([0.8, 0.8, 0.8, 1.0], 14)
-                    .draw(&decay_text, &mut glyphs, &c.draw_state, transform2, g)
-                    .unwrap();
+                for (i, line) in display_lines.iter().enumerate() {
+                    let transform = c.transform.trans(10.0, 20.0 + (i as f64 * 18.0));
+                    // Change the color here for black text
+                    text::Text::new_color([0.0, 0.0, 0.0, 1.0], 14)
+                        .draw(line, &mut glyphs, &c.draw_state, transform, g)
+                        .unwrap();
+                }
 
-                let transform3 = c.transform.trans(10.0, 60.0);
-                let ent_text = format!(
-                    "Entanglement: {:.0}%",
-                    universe.entanglement_percentage * 100.0
-                );
-                text::Text::new_color([0.8, 0.8, 0.8, 1.0], 14)
-                    .draw(&ent_text, &mut glyphs, &c.draw_state, transform3, g)
-                    .unwrap();
-
-                let transform4 = c.transform.trans(10.0, 80.0);
-                let fluct_text = format!("Fluctuation: {:.6}", universe.fluctuation_rate);
-                text::Text::new_color([0.8, 0.8, 0.8, 1.0], 14)
-                    .draw(&fluct_text, &mut glyphs, &c.draw_state, transform4, g)
-                    .unwrap();
-
-                // You must call this once per frame for the glyph cache.
                 glyphs.factory.encoder.flush(device);
             });
         }
