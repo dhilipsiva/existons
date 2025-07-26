@@ -4,8 +4,9 @@ mod universe;
 
 use crate::{existon::ConsciousnessState, universe::Universe};
 use piston_window::{
-    Button, Key, PistonWindow, PressEvent, RenderEvent, TextureSettings, Transformed, UpdateEvent,
-    WindowSettings, clear, glyph_cache::rusttype::GlyphCache, rectangle, text,
+    Button, Key, MouseButton, MouseCursorEvent, PistonWindow, PressEvent, RenderEvent,
+    TextureSettings, Transformed, UpdateEvent, WindowSettings, clear,
+    glyph_cache::rusttype::GlyphCache, rectangle, text,
 };
 
 fn main() {
@@ -34,7 +35,13 @@ fn main() {
     )
     .expect("Could not load font");
 
+    let mut mouse_pos = [0.0, 0.0];
+
     while let Some(e) = window.next() {
+        e.mouse_cursor(|pos| {
+            mouse_pos = pos;
+        });
+
         if e.update_args().is_some() {
             universe.tick();
         }
@@ -89,6 +96,21 @@ fn main() {
             }
         }
 
+        if let Some(Button::Mouse(button)) = e.press_args() {
+            let (grid_x, grid_y) = (
+                (mouse_pos[0] / CELL_SIZE) as usize,
+                (mouse_pos[1] / CELL_SIZE) as usize,
+            );
+
+            match button {
+                // Left-click to place an operator
+                MouseButton::Left => universe.set_operator(grid_x, grid_y),
+                // Right-click to erase an operator
+                MouseButton::Right => universe.clear_operator(grid_x, grid_y),
+                _ => {}
+            }
+        }
+
         if e.render_args().is_some() {
             window.draw_2d(&e, |c, g, device| {
                 clear([0.0, 0.0, 0.0, 1.0], g); // The void
@@ -101,7 +123,6 @@ fn main() {
                         let y_pos = y as f64 * CELL_SIZE;
 
                         let color = match existon.consciousness {
-                            // Potential Existons are the dim, shifting "quantum foam"
                             ConsciousnessState::Potential => {
                                 // We'll increase the multipliers to make the colors brighter
                                 let r = (existon.state.s.0 + 1) as f32 * 0.35; // Scalar -> Red
@@ -110,8 +131,8 @@ fn main() {
                                 let a = (existon.state.e01.0 + 1) as f32 * 0.4 + 0.5; // Bivector -> Alpha
                                 [r, g, b, a]
                             }
-                            // Observed Existons are bright, definite points of reality
                             ConsciousnessState::Observed => [1.0, 1.0, 0.8, 1.0],
+                            ConsciousnessState::Operator => [0.0, 1.0, 1.0, 1.0],
                         };
                         // Fixed: Removed extra comma and added the rectangle dimensions
                         let rect = [x_pos, y_pos, CELL_SIZE, CELL_SIZE];

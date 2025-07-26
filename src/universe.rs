@@ -67,6 +67,10 @@ impl Universe {
             for x in 0..self.width {
                 let idx = self.get_index(x, y);
 
+                // Skip stable operator cells
+                if self.grid[idx].consciousness == ConsciousnessState::Operator {
+                    continue;
+                }
                 // The Update Rule: S(t+1) = Operator * S(t)
                 // The 'Operator' is formed from the sum of neighbors' states.
                 let mut operator = Multivector::zero();
@@ -147,6 +151,29 @@ impl Universe {
                 self.entangled_pairs.insert(id1, id2);
                 self.entangled_pairs.insert(id2, id1);
             }
+        }
+    }
+
+    pub fn set_operator(&mut self, x: usize, y: usize) {
+        if x < self.width && y < self.height {
+            let idx = self.get_index(x, y);
+            self.grid[idx].consciousness = ConsciousnessState::Operator;
+            // Define a fixed state for the operator (e.g., a pure vector)
+            self.grid[idx].state = Multivector {
+                s: Mod3::new(0),
+                e0: Mod3::new(1),
+                e1: Mod3::new(0),
+                e01: Mod3::new(0),
+            };
+        }
+    }
+
+    /// Clears an Operator cell, returning it to a potential state.
+    pub fn clear_operator(&mut self, x: usize, y: usize) {
+        if x < self.width && y < self.height {
+            let idx = self.get_index(x, y);
+            // Reusing decay() resets it to a random potential state.
+            self.grid[idx].decay();
         }
     }
 }

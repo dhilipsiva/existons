@@ -5,6 +5,7 @@ use rand::Rng;
 pub enum ConsciousnessState {
     Potential, // The Existon is in superposition, unobserved.
     Observed,  // The Existon has been measured, collapsing its state.
+    Operator,  // A fixed, stable state that influences its neighbors.
 }
 
 /// The Existon: a "topological bit" and the primitive unit of consciousness.
