@@ -1,27 +1,30 @@
 //! # Existon Automaton
 //!
-//! This is the main entry point and event loop for the simulation.
+//! This is the main entry point and event loop for the N-dimensional simulation.
 //! It is responsible for:
 //! 1. Setting up the application window and configuration.
-//! 2. Initializing the `Universe` and font assets.
-//! 3. Running the main event loop to handle user input, simulation ticks, and rendering.
+//! 2. Initializing the N-dimensional `Universe` with a `p`-dimensional GA space.
+//! 3. Running the main event loop to handle user input, simulation ticks, and rendering a 2D slice of the universe.
 
 mod existon;
 mod ga_core;
 mod universe;
 
 use crate::{existon::ConsciousnessState, universe::Universe};
-// TO (this is the updated, correct version):
+use find_folder::Search;
 use piston_window::{
     Button, Glyphs, Key, MouseButton, MouseCursorEvent, PistonWindow, PressEvent, RenderEvent,
     TextureSettings, Transformed, UpdateEvent, WindowSettings, clear, rectangle, text,
 };
+
 // --- Application Configuration ---
 
 /// A struct to hold all the static configuration values for the application.
 struct Config {
-    width: usize,
-    height: usize,
+    /// The dimensions of the simulation grid (e.g., `vec![120, 80]`).
+    grid_dims: Vec<usize>,
+    /// The dimensionality of the Geometric Algebra space for each Existon.
+    ga_dims: usize,
     cell_size: f64,
     window_size: [f64; 2],
     background_color: [f32; 4],
@@ -33,16 +36,25 @@ struct Config {
 impl Config {
     /// Creates a new configuration with default values.
     fn new() -> Self {
-        const WIDTH: usize = 120;
-        const HEIGHT: usize = 80;
+        // --- KEY PARAMETERS TO EXPERIMENT WITH ---
+        // Defines the grid shape. We will visualize the first two dimensions.
+        let grid_dims = vec![120, 80];
+        // Defines the mathematical space of the Existons. p=3 allows for qutrits.
+        let ga_dims = 3;
+
         const CELL_SIZE: f64 = 8.0;
+
+        // Window size is based on the first two grid dimensions for visualization.
+        let window_width = grid_dims.first().copied().unwrap_or(100) as f64 * CELL_SIZE;
+        let window_height = grid_dims.get(1).copied().unwrap_or(100) as f64 * CELL_SIZE;
+
         Self {
-            width: WIDTH,
-            height: HEIGHT,
+            grid_dims,
+            ga_dims,
             cell_size: CELL_SIZE,
-            window_size: [WIDTH as f64 * CELL_SIZE, HEIGHT as f64 * CELL_SIZE],
+            window_size: [window_width, window_height],
             background_color: [0.0, 0.0, 0.0, 1.0], // Black
-            text_color: [0.0, 0.0, 0.0, 1.0],       // Black
+            text_color: [1.0, 1.0, 1.0, 0.9],       // White
             font_size: 14,
             line_height: 18.0,
         }
@@ -53,7 +65,7 @@ impl Config {
 
 fn main() {
     let config = Config::new();
-    let mut universe = Universe::new(config.width, config.height);
+    let mut universe = Universe::new(config.grid_dims.clone(), config.ga_dims);
 
     // --- Window and Asset Setup ---
     let mut window: PistonWindow = WindowSettings::new(
@@ -64,9 +76,7 @@ fn main() {
     .build()
     .unwrap_or_else(|e| panic!("Failed to build PistonWindow: {}", e));
 
-    let assets = find_folder::Search::ParentsThenKids(3, 3)
-        .for_folder("assets")
-        .unwrap();
+    let assets = Search::ParentsThenKids(3, 3).for_folder("assets").unwrap();
     let font_path = assets.join("FiraSans-Regular.ttf");
     let mut glyphs = Glyphs::new(
         &font_path,
@@ -105,59 +115,33 @@ fn handle_input(button: Button, universe: &mut Universe, config: &Config, mouse_
     match button {
         // Keyboard Controls
         Button::Keyboard(key) => match key {
-            Key::Up => {
-                universe.observation_rate = (universe.observation_rate * 2.0).min(1.0);
-                println!("Observation Rate Increased: {}", universe.observation_rate);
-            }
-            Key::Down => {
-                universe.observation_rate /= 2.0;
-                println!("Observation Rate Decreased: {}", universe.observation_rate);
-            }
-            Key::Right => {
-                universe.decay_rate = (universe.decay_rate * 2.0).min(1.0);
-                println!("Decay Rate Increased: {}", universe.decay_rate);
-            }
-            Key::Left => {
-                universe.decay_rate /= 2.0;
-                println!("Decay Rate Decreased: {}", universe.decay_rate);
-            }
-            Key::F => {
-                universe.fluctuation_rate = (universe.fluctuation_rate * 2.0).min(1.0);
-                println!("Fluctuation Rate set to: {}", universe.fluctuation_rate);
-            }
+            Key::Up => universe.observation_rate = (universe.observation_rate * 2.0).min(1.0),
+            Key::Down => universe.observation_rate /= 2.0,
+            Key::Right => universe.decay_rate = (universe.decay_rate * 2.0).min(1.0),
+            Key::Left => universe.decay_rate /= 2.0,
+            Key::F => universe.fluctuation_rate = (universe.fluctuation_rate * 2.0).min(1.0),
             Key::E => {
-                let current_percent = universe.entanglement_percentage;
-                if (current_percent - 0.01).abs() < f64::EPSILON {
-                    universe.entanglement_percentage = 0.05;
-                } else if (current_percent - 0.05).abs() < f64::EPSILON {
-                    universe.entanglement_percentage = 0.10;
-                } else if (current_percent - 0.10).abs() < f64::EPSILON {
-                    universe.entanglement_percentage = 0.20;
+                let current = universe.entanglement_percentage;
+                universe.entanglement_percentage = if (current - 0.20).abs() < 0.01 {
+                    0.01
                 } else {
-                    universe.entanglement_percentage = 0.01;
-                }
+                    current + 0.05
+                };
                 universe.re_entangle();
-                println!(
-                    "Entanglement Percentage set to: {}%",
-                    universe.entanglement_percentage * 100.0
-                );
             }
-            Key::R => {
-                *universe = Universe::new(config.width, config.height);
-                println!("--- UNIVERSE RESET ---");
-            }
+            Key::R => *universe = Universe::new(config.grid_dims.clone(), config.ga_dims),
             _ => {}
         },
 
-        // Mouse Controls
+        // Mouse Controls (operates on the visible 2D slice)
         Button::Mouse(button) => {
-            let (grid_x, grid_y) = (
+            let grid_coord = [
                 (mouse_pos[0] / config.cell_size) as usize,
                 (mouse_pos[1] / config.cell_size) as usize,
-            );
+            ];
             match button {
-                MouseButton::Left => universe.set_operator(grid_x, grid_y),
-                MouseButton::Right => universe.clear_operator(grid_x, grid_y),
+                MouseButton::Left => universe.set_operator(&grid_coord),
+                MouseButton::Right => universe.clear_operator(&grid_coord),
                 _ => {}
             }
         }
@@ -170,55 +154,70 @@ fn draw_app(
     c: piston_window::Context,
     g: &mut piston_window::G2d,
     device: &mut piston_window::GfxDevice,
-    // UPDATE THIS LINE:
     glyphs: &mut Glyphs,
     universe: &Universe,
     config: &Config,
 ) {
-    // 1. Clear the screen with the background color.
     clear(config.background_color, g);
 
-    // 2. Draw the grid of Existons.
-    for y in 0..universe.height {
-        for x in 0..universe.width {
-            let idx = y * universe.width + x;
-            let existon = universe.grid[idx];
-            let x_pos = x as f64 * config.cell_size;
-            let y_pos = y as f64 * config.cell_size;
+    // --- Draw the 2D slice of the Grid ---
+    let (width, height) = (config.grid_dims[0], config.grid_dims[1]);
+    for y in 0..height {
+        for x in 0..width {
+            // We are only visualizing a 2D slice, so higher dimensions are fixed at 0.
+            let mut coord = vec![0; universe.grid_dims.len()];
+            coord[0] = x;
+            coord[1] = y;
 
-            let color = match existon.consciousness {
-                ConsciousnessState::Potential => {
-                    let r = (existon.state.s.0 + 1) as f32 * 0.35;
-                    let g = (existon.state.e0.0 + 1) as f32 * 0.35;
-                    let b = (existon.state.e1.0 + 1) as f32 * 0.35;
-                    let a = (existon.state.e01.0 + 1) as f32 * 0.4 + 0.5;
-                    [r, g, b, a]
-                }
-                ConsciousnessState::Observed => [1.0, 1.0, 0.8, 1.0],
-                ConsciousnessState::Operator => [0.0, 1.0, 1.0, 1.0],
-            };
-            let rect = [x_pos, y_pos, config.cell_size, config.cell_size];
-            rectangle(color, rect, c.transform, g);
+            if let Some(idx) = universe.get_index_from_coord(&coord) {
+                let existon = &universe.grid[idx];
+                let x_pos = x as f64 * config.cell_size;
+                let y_pos = y as f64 * config.cell_size;
+
+                // --- Updated Color Logic for Dynamic Multivector ---
+                let color = match existon.consciousness {
+                    ConsciousnessState::Potential => {
+                        let s = existon.state.coefficients.get(0).map_or(0, |c| c.0); // Scalar
+                        let e0 = existon.state.coefficients.get(1).map_or(0, |c| c.0); // e0
+                        let e1 = existon.state.coefficients.get(2).map_or(0, |c| c.0); // e1
+                        let e01 = existon.state.coefficients.get(3).map_or(0, |c| c.0); // e01
+
+                        let r = (s + 1) as f32 * 0.35;
+                        let g = (e0 + 1) as f32 * 0.35;
+                        let b = (e1 + 1) as f32 * 0.35;
+                        let a = (e01 + 1) as f32 * 0.4 + 0.5;
+                        [r, g, b, a]
+                    }
+                    ConsciousnessState::Observed => [1.0, 1.0, 0.8, 1.0],
+                    ConsciousnessState::Operator => [0.0, 1.0, 1.0, 1.0],
+                };
+                rectangle(
+                    color,
+                    [x_pos, y_pos, config.cell_size, config.cell_size],
+                    c.transform,
+                    g,
+                );
+            }
         }
     }
 
-    // 3. Draw the UI text overlay.
+    // --- Draw the UI Text Overlay ---
     let display_lines = vec![
         format!(
-            "[Up/Down] Observation Rate: {:.6}",
+            "[Up/Down] Observation Rate: {:.4}",
             universe.observation_rate
         ),
-        format!("[Left/Right] Decay Rate: {:.6}", universe.decay_rate),
-        format!("[F] Fluctuation Rate:     {:.6}", universe.fluctuation_rate),
+        format!("[Left/Right] Decay Rate: {:.4}", universe.decay_rate),
+        format!("[F] Fluctuation Rate:     {:.4}", universe.fluctuation_rate),
         format!(
             "[E] Entanglement:         {:.0}%",
             universe.entanglement_percentage * 100.0
         ),
-        format!("[R] Reset Universe"),
-        format!("[ESC] Close Window"),
-        format!(""), // Blank line for separation
-        format!("[L-Click] Place Operator"),
-        format!("[R-Click] Erase Operator"),
+        String::from(""),
+        format!(
+            "Grid Dims: {:?}, GA Dims: {}",
+            config.grid_dims, config.ga_dims
+        ),
     ];
 
     for (i, line) in display_lines.iter().enumerate() {
@@ -229,7 +228,5 @@ fn draw_app(
             .draw(line, glyphs, &c.draw_state, transform, g)
             .unwrap();
     }
-
-    // 4. Flush the glyph cache to the screen.
     glyphs.factory.encoder.flush(device);
 }

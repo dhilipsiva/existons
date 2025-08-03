@@ -1,41 +1,23 @@
-//! Defines the `Universe`, which contains the grid of `Existon` instances
-//! and orchestrates the primary simulation rules.
+//! Defines the `Universe`, which contains the N-dimensional grid of `Existon`
+//! instances and orchestrates the primary simulation rules.
 
 use crate::existon::{ConsciousnessState, Existon};
-use crate::ga_core::{Mod3, Multivector};
-use rand::Rng;
+use crate::ga_core::Multivector;
+use rand::{prelude::*, rng};
 use std::collections::HashMap;
-
-// --- Named Constants for Clarity ---
-
-/// A fixed multivector state used when placing a stable `Operator` on the grid.
-const FIXED_OPERATOR_STATE: Multivector = Multivector {
-    s: Mod3(0),
-    e0: Mod3(1),
-    e1: Mod3(0),
-    e01: Mod3(0),
-};
-
-/// The operator applied to an Existon's state when its entangled partner is observed.
-/// Multiplying by this scalar-only multivector effectively inverts the state.
-const ENTANGLEMENT_INVERSION: Multivector = Multivector {
-    s: Mod3(-1),
-    e0: Mod3(0),
-    e1: Mod3(0),
-    e01: Mod3(0),
-};
 
 //================================================================================
 // Universe
 //================================================================================
 
 /// Represents the simulation space, containing all Existons and simulation parameters.
-#[derive(Debug)]
+/// The grid is a generic N-dimensional lattice.
+#[derive(Debug, Clone)]
 pub struct Universe {
-    /// The width of the simulation grid.
-    pub width: usize,
-    /// The height of the simulation grid.
-    pub height: usize,
+    /// The number of dimensions of the Geometric Algebra space for each Existon.
+    pub ga_dims: usize,
+    /// The dimensions of the simulation grid (e.g., `vec![120, 80]` for a 2D grid).
+    pub grid_dims: Vec<usize>,
     /// A flat vector containing all `Existon` instances in the grid.
     pub grid: Vec<Existon>,
     /// Models non-locality by mapping an Existon's ID to its entangled partner's ID.
@@ -51,21 +33,21 @@ pub struct Universe {
 }
 
 impl Universe {
-    /// Creates a new `Universe` with a given width and height, populating it
-    /// with Existons in a random `Potential` state.
-    pub fn new(width: usize, height: usize) -> Self {
-        let size = width * height;
+    /// Creates a new `Universe` with given grid dimensions and GA dimensions.
+    pub fn new(grid_dims: Vec<usize>, ga_dims: usize) -> Self {
+        let size: usize = grid_dims.iter().product();
         let mut grid = Vec::with_capacity(size);
         for i in 0..size {
-            grid.push(Existon::new(i as u64));
+            // Each Existon is created within the specified p-dimensional GA space.
+            grid.push(Existon::new(i as u64, ga_dims));
         }
 
-        let initial_entanglement = 0.05; // Start with 5% entanglement
+        let initial_entanglement = 0.05;
         let entangled_pairs = Self::_generate_entangled_pairs(size, initial_entanglement);
 
         Universe {
-            width,
-            height,
+            grid_dims,
+            ga_dims,
             grid,
             entangled_pairs,
             observation_rate: 0.0005,
@@ -76,58 +58,48 @@ impl Universe {
     }
 
     /// The main simulation step, where all rules are applied to each Existon.
-    ///
-    /// This method uses a "read from old, write to new" pattern by cloning the grid.
-    /// This ensures that all calculations within a single tick are based on the state
-    /// of the universe at the beginning of that tick.
     pub fn tick(&mut self) {
         let mut next_grid = self.grid.clone();
         let mut observed_in_tick = Vec::new();
+        let mut rng = rng();
 
-        // 1. Local Interaction & State Transition Step
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let idx = self.get_index(x, y);
+        // 1. Local Interaction & State Transition Step (N-Dimensional)
+        for idx in 0..self.grid.len() {
+            if self.grid[idx].consciousness == ConsciousnessState::Operator {
+                continue;
+            }
 
-                // Skip stable `Operator` cells entirely.
-                if self.grid[idx].consciousness == ConsciousnessState::Operator {
-                    continue;
+            // A. Get the N-dimensional coordinate and neighbors for the current cell.
+            let coord = self.get_coord_from_index(idx);
+            let neighbor_indices = self.get_neighbors(&coord);
+
+            // B. Compute the local operator from the sum of neighbors' states.
+            let mut operator = Multivector::zero(self.ga_dims);
+            for neighbor_idx in neighbor_indices {
+                operator = &operator + &self.grid[neighbor_idx].state;
+            }
+
+            // C. Apply the operator via the Geometric Product for the next state.
+            next_grid[idx].state = &operator * &self.grid[idx].state;
+
+            // D. Apply state transition rules based on probabilities.
+            if self.grid[idx].consciousness == ConsciousnessState::Potential {
+                if rng.random_bool(self.observation_rate) {
+                    next_grid[idx].observe();
+                    observed_in_tick.push(next_grid[idx].id);
+                } else if rng.random_bool(self.fluctuation_rate) {
+                    // Re-randomizes the state by decaying and recreating.
+                    next_grid[idx] = Existon::new(next_grid[idx].id, self.ga_dims);
                 }
-
-                // A. Compute the local operator from the sum of neighbors' states.
-                let mut operator = Multivector::zero();
-                for dy in -1..=1 {
-                    for dx in -1..=1 {
-                        if dx == 0 && dy == 0 {
-                            continue;
-                        }
-                        let nx = (x as i32 + dx).rem_euclid(self.width as i32) as usize;
-                        let ny = (y as i32 + dy).rem_euclid(self.height as i32) as usize;
-                        let neighbor_idx = self.get_index(nx, ny);
-                        operator = operator + self.grid[neighbor_idx].state;
-                    }
-                }
-
-                // B. Apply the operator via the Geometric Product for the next state.
-                next_grid[idx].state = operator * self.grid[idx].state;
-
-                // C. Apply state transition rules based on probabilities.
-                if self.grid[idx].consciousness == ConsciousnessState::Potential {
-                    if rand::rng().random_bool(self.observation_rate) {
-                        next_grid[idx].observe();
-                        observed_in_tick.push(next_grid[idx].id);
-                    } else if rand::rng().random_bool(self.fluctuation_rate) {
-                        next_grid[idx].decay(); // Re-randomizes the state
-                    }
-                } else if self.grid[idx].consciousness == ConsciousnessState::Observed {
-                    if rand::rng().random_bool(self.decay_rate) {
-                        next_grid[idx].decay();
-                    }
+            } else if self.grid[idx].consciousness == ConsciousnessState::Observed {
+                if rng.random_bool(self.decay_rate) {
+                    next_grid[idx].decay();
                 }
             }
         }
 
         // 2. Nonlocal (Entanglement) Step
+        let entanglement_inversion = self.entanglement_inversion_operator();
         for id in observed_in_tick {
             if let Some(&partner_id) = self.entangled_pairs.get(&id) {
                 let partner_idx = partner_id as usize;
@@ -135,7 +107,7 @@ impl Universe {
                     next_grid[partner_idx].observe();
                     // Correlate the partner's state by inverting it upon collapse.
                     next_grid[partner_idx].state =
-                        next_grid[partner_idx].state * ENTANGLEMENT_INVERSION;
+                        &next_grid[partner_idx].state * &entanglement_inversion;
                 }
             }
         }
@@ -143,54 +115,131 @@ impl Universe {
         self.grid = next_grid;
     }
 
-    /// Clears and regenerates the map of entangled pairs based on the current
-    /// `entanglement_percentage`.
+    /// Clears and regenerates the map of entangled pairs.
     pub fn re_entangle(&mut self) {
-        let size = self.width * self.height;
+        let size = self.grid.len();
         self.entangled_pairs = Self::_generate_entangled_pairs(size, self.entanglement_percentage);
     }
 
-    /// Places a stable `Operator` cell on the grid.
-    pub fn set_operator(&mut self, x: usize, y: usize) {
-        if x < self.width && y < self.height {
-            let idx = self.get_index(x, y);
+    /// Places a stable `Operator` cell on the grid at an N-dimensional coordinate.
+    pub fn set_operator(&mut self, coord: &[usize]) {
+        if let Some(idx) = self.get_index_from_coord(coord) {
             self.grid[idx].consciousness = ConsciousnessState::Operator;
-            self.grid[idx].state = FIXED_OPERATOR_STATE;
+            self.grid[idx].state = self.fixed_operator_state();
         }
     }
 
     /// Clears an `Operator` cell, returning it to a `Potential` state.
-    pub fn clear_operator(&mut self, x: usize, y: usize) {
-        if x < self.width && y < self.height {
-            let idx = self.get_index(x, y);
-            // `decay()` conveniently resets the cell to a random potential state.
+    pub fn clear_operator(&mut self, coord: &[usize]) {
+        if let Some(idx) = self.get_index_from_coord(coord) {
             self.grid[idx].decay();
+            // Decay only works on Observed, so we ensure it's reset correctly.
+            if self.grid[idx].consciousness == ConsciousnessState::Operator {
+                self.grid[idx] = Existon::new(self.grid[idx].id, self.ga_dims);
+            }
         }
     }
 
-    /// Calculates the 1D index for a 2D grid coordinate.
-    fn get_index(&self, x: usize, y: usize) -> usize {
-        y * self.width + x
+    // --- N-Dimensional Helper Functions ---
+
+    /// Calculates the 1D index for an N-dimensional grid coordinate.
+    pub fn get_index_from_coord(&self, coord: &[usize]) -> Option<usize> {
+        if coord.len() != self.grid_dims.len() {
+            return None;
+        }
+        let mut index = 0;
+        let mut stride = 1;
+        for (i, &c) in coord.iter().enumerate() {
+            if c >= self.grid_dims[i] {
+                return None;
+            }
+            index += stride * c;
+            stride *= self.grid_dims[i];
+        }
+        Some(index)
+    }
+
+    /// Calculates the N-dimensional coordinate from a 1D grid index.
+    pub fn get_coord_from_index(&self, mut index: usize) -> Vec<usize> {
+        let mut coord = vec![0; self.grid_dims.len()];
+        let mut stride = self.grid.len();
+        for (i, &dim) in self.grid_dims.iter().enumerate().rev() {
+            stride /= dim;
+            coord[i] = index / stride;
+            index %= stride;
+        }
+        coord
+    }
+
+    /// Gets the indices of all neighbors for a given N-dimensional coordinate (Moore neighborhood).
+    fn get_neighbors(&self, coord: &[usize]) -> Vec<usize> {
+        let mut neighbors = Vec::new();
+        let n_dims = self.grid_dims.len();
+
+        // This iterator generates all {-1, 0, 1} combinations for N dimensions.
+        for i in 0..(3_i32.pow(n_dims as u32)) {
+            let mut offset = Vec::new();
+            let mut temp = i;
+            // The all-zero offset is the cell itself, so we skip it.
+            if temp == 0 {
+                continue;
+            }
+
+            for _ in 0..n_dims {
+                offset.push(temp % 3 - 1);
+                temp /= 3;
+            }
+
+            let neighbor_coord: Vec<usize> = coord
+                .iter()
+                .zip(offset.iter())
+                .enumerate()
+                .map(|(d, (&c, &o))| (c as i32 + o).rem_euclid(self.grid_dims[d] as i32) as usize)
+                .collect();
+
+            if let Some(idx) = self.get_index_from_coord(&neighbor_coord) {
+                neighbors.push(idx);
+            }
+        }
+        neighbors
+    }
+
+    // --- Dynamic Operator Generators ---
+
+    /// Generates a fixed multivector state for a stable `Operator`.
+    fn fixed_operator_state(&self) -> Multivector {
+        let mut mv = Multivector::zero(self.ga_dims);
+        // As an example, make it a pure vector state (e.g., e_0 = 1).
+        if self.ga_dims > 0 {
+            mv.coefficients[1] = crate::ga_core::Mod3::new(1); // Blade e_0
+        }
+        mv
+    }
+
+    /// Generates the operator for entanglement, which inverts a state.
+    fn entanglement_inversion_operator(&self) -> Multivector {
+        let mut mv = Multivector::zero(self.ga_dims);
+        // Scalar value of -1.
+        mv.coefficients[0] = crate::ga_core::Mod3::new(-1);
+        mv
     }
 
     /// Private helper to generate a new map of entangled pairs.
     fn _generate_entangled_pairs(size: usize, percentage: f64) -> HashMap<u64, u64> {
         let mut entangled_pairs = HashMap::new();
-        let mut rng = rand::rng();
-        let num_pairs = (size as f64 * percentage) as usize;
+        let mut rng = rng();
+        let num_pairs = (size as f64 * percentage / 2.0) as usize;
+        let mut available_ids: Vec<u64> = (0..size as u64).collect();
+        available_ids.shuffle(&mut rng);
 
         for _ in 0..num_pairs {
-            let id1 = rng.random_range(0..size) as u64;
-            let id2 = rng.random_range(0..size) as u64;
-
-            // Ensure we don't entangle a particle with itself or re-entangle existing pairs.
-            if id1 != id2
-                && !entangled_pairs.contains_key(&id1)
-                && !entangled_pairs.contains_key(&id2)
-            {
-                entangled_pairs.insert(id1, id2);
-                entangled_pairs.insert(id2, id1);
+            if available_ids.len() < 2 {
+                break;
             }
+            let id1 = available_ids.pop().unwrap();
+            let id2 = available_ids.pop().unwrap();
+            entangled_pairs.insert(id1, id2);
+            entangled_pairs.insert(id2, id1);
         }
         entangled_pairs
     }
