@@ -3,7 +3,8 @@
 
 use crate::existon::{ConsciousnessState, Existon};
 use crate::ga_core::Multivector;
-use rand::{prelude::*, rng};
+use rand::seq::SliceRandom;
+use rand::{Rng, rng};
 use std::collections::HashMap;
 
 //================================================================================
@@ -43,7 +44,7 @@ impl Universe {
         }
 
         let initial_entanglement = 0.05;
-        let entangled_pairs = Self::_generate_entangled_pairs(size, initial_entanglement);
+        let entangled_pairs = Self::generate_entangled_pairs(size, initial_entanglement);
 
         Universe {
             grid_dims,
@@ -55,70 +56,6 @@ impl Universe {
             entanglement_percentage: initial_entanglement,
             fluctuation_rate: 0.001,
         }
-    }
-
-    /// The main simulation step, where all rules are applied to each Existon.
-    pub fn tick(&mut self) {
-        let mut next_grid = self.grid.clone();
-        let mut observed_in_tick = Vec::new();
-        let mut rng = rng();
-
-        // 1. Local Interaction & State Transition Step (N-Dimensional)
-        for idx in 0..self.grid.len() {
-            if self.grid[idx].consciousness == ConsciousnessState::Operator {
-                continue;
-            }
-
-            // A. Get the N-dimensional coordinate and neighbors for the current cell.
-            let coord = self.get_coord_from_index(idx);
-            let neighbor_indices = self.get_neighbors(&coord);
-
-            // B. Compute the local operator from the sum of neighbors' states.
-            let mut operator = Multivector::zero(self.ga_dims);
-            for neighbor_idx in neighbor_indices {
-                operator = &operator + &self.grid[neighbor_idx].state;
-            }
-
-            // C. Apply the operator via the Geometric Product for the next state.
-            next_grid[idx].state = &operator * &self.grid[idx].state;
-
-            // D. Apply state transition rules based on probabilities.
-            if self.grid[idx].consciousness == ConsciousnessState::Potential {
-                if rng.random_bool(self.observation_rate) {
-                    next_grid[idx].observe();
-                    observed_in_tick.push(next_grid[idx].id);
-                } else if rng.random_bool(self.fluctuation_rate) {
-                    // Re-randomizes the state by decaying and recreating.
-                    next_grid[idx] = Existon::new(next_grid[idx].id, self.ga_dims);
-                }
-            } else if self.grid[idx].consciousness == ConsciousnessState::Observed {
-                if rng.random_bool(self.decay_rate) {
-                    next_grid[idx].decay();
-                }
-            }
-        }
-
-        // 2. Nonlocal (Entanglement) Step
-        let entanglement_inversion = self.entanglement_inversion_operator();
-        for id in observed_in_tick {
-            if let Some(&partner_id) = self.entangled_pairs.get(&id) {
-                let partner_idx = partner_id as usize;
-                if next_grid[partner_idx].consciousness == ConsciousnessState::Potential {
-                    next_grid[partner_idx].observe();
-                    // Correlate the partner's state by inverting it upon collapse.
-                    next_grid[partner_idx].state =
-                        &next_grid[partner_idx].state * &entanglement_inversion;
-                }
-            }
-        }
-
-        self.grid = next_grid;
-    }
-
-    /// Clears and regenerates the map of entangled pairs.
-    pub fn re_entangle(&mut self) {
-        let size = self.grid.len();
-        self.entangled_pairs = Self::_generate_entangled_pairs(size, self.entanglement_percentage);
     }
 
     /// Places a stable `Operator` cell on the grid at an N-dimensional coordinate.
@@ -225,7 +162,7 @@ impl Universe {
     }
 
     /// Private helper to generate a new map of entangled pairs.
-    fn _generate_entangled_pairs(size: usize, percentage: f64) -> HashMap<u64, u64> {
+    fn generate_entangled_pairs(size: usize, percentage: f64) -> HashMap<u64, u64> {
         let mut entangled_pairs = HashMap::new();
         let mut rng = rng();
         let num_pairs = (size as f64 * percentage / 2.0) as usize;
@@ -242,5 +179,86 @@ impl Universe {
             entangled_pairs.insert(id2, id1);
         }
         entangled_pairs
+    }
+
+    pub fn observe_cell(&mut self, idx: usize) {
+        if idx < self.grid.len() {
+            self.grid[idx].observe();
+        }
+    }
+
+    // In universe.rs, inside the `impl Universe` block
+
+    /// Creates a non-local connection between two Existons.
+    pub fn entangle_pair(&mut self, id1: u64, id2: u64) {
+        // Ensure we don't entangle a particle with itself or an already-entangled particle.
+        if id1 != id2
+            && !self.entangled_pairs.contains_key(&id1)
+            && !self.entangled_pairs.contains_key(&id2)
+        {
+            self.entangled_pairs.insert(id1, id2);
+            self.entangled_pairs.insert(id2, id1);
+        }
+    }
+
+    /// The main simulation step.
+    pub fn tick(&mut self) -> Vec<(u64, u64)> {
+        let mut next_grid = self.grid.clone();
+        let mut observed_in_tick = Vec::new();
+        let mut triggered_entanglements = Vec::new(); // New: Track triggered pairs
+        let mut rng = rng();
+
+        // 1. Local Interaction & State Transition Step...
+        // (This part of the method remains unchanged)
+        for idx in 0..self.grid.len() {
+            if self.grid[idx].consciousness == ConsciousnessState::Operator {
+                continue;
+            }
+            let coord = self.get_coord_from_index(idx);
+            let neighbor_indices = self.get_neighbors(&coord);
+            let mut operator = Multivector::zero(self.ga_dims);
+            for neighbor_idx in neighbor_indices {
+                operator = &operator + &self.grid[neighbor_idx].state;
+            }
+            next_grid[idx].state = &operator * &self.grid[idx].state;
+            if self.grid[idx].consciousness == ConsciousnessState::Potential {
+                if rng.random_bool(self.observation_rate) {
+                    next_grid[idx].observe();
+                    observed_in_tick.push(next_grid[idx].id);
+                } else if rng.random_bool(self.fluctuation_rate) {
+                    next_grid[idx] = Existon::new(next_grid[idx].id, self.ga_dims);
+                }
+            } else if self.grid[idx].consciousness == ConsciousnessState::Observed {
+                if rng.random_bool(self.decay_rate) {
+                    next_grid[idx].decay();
+                }
+            }
+        }
+
+        // 2. Nonlocal (Entanglement) Step
+        let entanglement_inversion = self.entanglement_inversion_operator();
+        for id in observed_in_tick {
+            if let Some(&partner_id) = self.entangled_pairs.get(&id) {
+                let partner_idx = partner_id as usize;
+                if next_grid[partner_idx].consciousness == ConsciousnessState::Potential {
+                    next_grid[partner_idx].observe();
+                    next_grid[partner_idx].state =
+                        &next_grid[partner_idx].state * &entanglement_inversion;
+
+                    // New: Record that this entanglement was triggered for visualization
+                    triggered_entanglements.push((id, partner_id));
+                }
+            }
+        }
+
+        self.grid = next_grid;
+        triggered_entanglements // Return the list of events
+    }
+
+    pub fn disrupt_cell(&mut self, idx: usize) {
+        if idx < self.grid.len() {
+            // The decay() method already checks if the state is Observed.
+            self.grid[idx].decay();
+        }
     }
 }
